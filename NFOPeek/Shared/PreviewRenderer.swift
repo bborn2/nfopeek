@@ -18,12 +18,13 @@ enum PreviewRenderer {
 
         let nfoDir = nfoURL.deletingLastPathComponent()
         var images: [String: Data] = [:]
+        let imageCache = URLCache.shared
 
-        func loadImage(_ path: String) -> String? {
+        func loadLocalImage(_ path: String) -> String? {
             let url = nfoDir.appendingPathComponent(path)
             guard let data = try? Data(contentsOf: url),
                   data.count > 0,
-                  data.count < 20_000_000  // 20 MB sanity check
+                  data.count < 20_000_000
             else { return nil }
             let ext = url.pathExtension.isEmpty ? "jpg" : url.pathExtension.lowercased()
             let id = "img\(images.count).\(ext)"
@@ -31,16 +32,73 @@ enum PreviewRenderer {
             return id
         }
 
-        let baseName = nfoURL.deletingPathExtension().lastPathComponent
-        let posterCandidates = [movie.posterPath].compactMap { $0 }
-            + ["jpg", "jpeg", "png", "webp"].flatMap { ext in
-                ["poster.\(ext)", "\(baseName)-poster.\(ext)", "folder.\(ext)"]
+        func loadRemoteImage(_ urlString: String) -> String? {
+            var sanitized = urlString
+            if sanitized.hasPrefix("http://") { sanitized = "https://" + sanitized.dropFirst(7) }
+            guard let url = URL(string: sanitized) else { return nil }
+
+            // Check cache first
+            let request = URLRequest(url: url)
+            if let cachedResponse = imageCache.cachedResponse(for: request) {
+                let ext = url.pathExtension.isEmpty ? "jpg" : url.pathExtension.lowercased()
+                let id = "img\(images.count).\(ext)"
+                images[id] = cachedResponse.data
+                return id
             }
-        var posterID: String?
-        for candidate in posterCandidates {
-            if let id = loadImage(candidate) { posterID = id; break }
+
+            // Download with timeout
+            let semaphore = DispatchSemaphore(value: 0)
+            var result: Data?
+            let task = URLSession.shared.dataTask(with: request) { data, response, error in
+                defer { semaphore.signal() }
+                if let data = data, data.count > 0, data.count < 20_000_000,
+                   let response = response as? HTTPURLResponse, response.statusCode == 200 {
+                    result = data
+                    imageCache.storeCachedResponse(CachedURLResponse(response: response, data: data), for: request)
+                }
+            }
+            task.resume()
+            _ = semaphore.wait(timeout: .now() + 4)
+            task.cancel()
+
+            guard let data = result else { return nil }
+            let ext = url.pathExtension.isEmpty ? "jpg" : url.pathExtension.lowercased()
+            let id = "img\(images.count).\(ext)"
+            images[id] = data
+            return id
         }
-        let fanartIDs = movie.fanartPaths.compactMap(loadImage)
+
+        let baseName = nfoURL.deletingPathExtension().lastPathComponent
+        // Prefer local poster files over remote URLs
+        let localPosterCandidates = ["jpg", "jpeg", "png", "webp"].flatMap { ext in
+            ["poster.\(ext)", "\(baseName)-poster.\(ext)", "folder.\(ext)"]
+        }
+        var posterID: String?
+        for candidate in localPosterCandidates {
+            if let id = loadLocalImage(candidate) { posterID = id; break }
+        }
+        // Fallback to nfo-defined remote poster if no local file found
+        if posterID == nil, let remotePoster = movie.posterPath, remotePoster.contains("://") {
+            posterID = loadRemoteImage(remotePoster)
+        }
+        // Try local fanart stills from nfo first
+        let localFanart = movie.fanartPaths.filter { !$0.contains("://") }
+        var fanartIDs = localFanart.compactMap(loadLocalImage)
+
+        // Fallback to conventional local backdrop files
+        if fanartIDs.isEmpty {
+            let fanartCandidates = ["jpg", "jpeg", "png", "webp"].flatMap { ext in
+                ["fanart.\(ext)", "\(baseName)-fanart.\(ext)"]
+            }
+            for candidate in fanartCandidates {
+                if let id = loadLocalImage(candidate) { fanartIDs = [id]; break }
+            }
+        }
+
+        // Final fallback: first remote fanart URL from nfo
+        if fanartIDs.isEmpty, let remoteFanart = movie.fanartPaths.first(where: { $0.contains("://") }) {
+            if let id = loadRemoteImage(remoteFanart) { fanartIDs = [id] }
+        }
 
         let html = generateHTML(movie: movie, posterID: posterID, fanartIDs: fanartIDs)
         return Preview(html: html, images: images)
@@ -85,6 +143,11 @@ enum PreviewRenderer {
             font-weight: 700;
             margin-bottom: 8px;
             color: #fff;
+        }
+        .subtitle {
+            font-size: 16px;
+            color: #aaa;
+            margin-bottom: 12px;
         }
         .meta {
             font-size: 14px;
@@ -139,6 +202,7 @@ enum PreviewRenderer {
             body { background: #f5f5f5; color: #333; }
             .title { color: #000; }
             .meta { color: #666; }
+            .subtitle { color: #666; }
             .genre { background: #e0e0e0; }
             .people dt { color: #555; }
             .poster { background: #ddd; }
@@ -156,6 +220,9 @@ enum PreviewRenderer {
 
         html += #"<div class="info">"#
         html += #"<h1 class="title">\#(escape(movie.title ?? "Unknown Title"))</h1>"#
+        if let original = movie.originalTitle, original != movie.title {
+            html += #"<div class="subtitle">\#(escape(original))</div>"#
+        }
 
         var metaParts: [String] = []
         if let year = movie.year { metaParts.append(escape(year)) }
@@ -180,8 +247,14 @@ enum PreviewRenderer {
         if let director = movie.director {
             html += #"<dt>Director:</dt><dd>\#(escape(director))</dd>"#
         }
+        if !movie.writers.isEmpty {
+            html += #"<dt>Writer:</dt><dd>\#(escape(movie.writers.joined(separator: ", ")))</dd>"#
+        }
         if !movie.actors.isEmpty {
-            html += #"<dt>Cast:</dt><dd>\#(escape(movie.actors.prefix(5).joined(separator: ", ")))</dd>"#
+            let cast = movie.actors.prefix(5).map { actor in
+                actor.role.map { "\(actor.name) (\($0))" } ?? actor.name
+            }.joined(separator: ", ")
+            html += #"<dt>Cast:</dt><dd>\#(escape(cast))</dd>"#
         }
         if let studio = movie.studio {
             html += #"<dt>Studio:</dt><dd>\#(escape(studio))</dd>"#

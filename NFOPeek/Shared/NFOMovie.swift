@@ -2,6 +2,11 @@ import Foundation
 
 /// Metadata parsed from an Emby/Kodi style movie.nfo file.
 struct NFOMovie {
+    struct Cast {
+        var name: String
+        var role: String?
+    }
+
     var title: String?
     var originalTitle: String?
     var number: String?
@@ -12,9 +17,10 @@ struct NFOMovie {
     var rating: String?
     var studio: String?
     var director: String?
+    var writers: [String] = []
     var plot: String?
     var genres: [String] = []
-    var actors: [String] = []
+    var actors: [Cast] = []
     /// Image paths referenced by the nfo, relative to the nfo's directory or absolute.
     /// Remote URLs are dropped because the preview has no network access.
     var posterPath: String?
@@ -51,13 +57,18 @@ enum NFOParser {
         movie.runtimeMinutes = text("runtime")
         movie.mpaa = text("mpaa")
         movie.rating = text("rating") ?? ratingFromRatingsBlock(root)
-        movie.studio = text("studio") ?? text("maker")
+        movie.studio = texts(root.elements(forName: "studio")).joined(separator: ", ").nilIfEmpty ?? text("maker")
         movie.director = texts(root.elements(forName: "director")).joined(separator: ", ").nilIfEmpty
+        movie.writers = texts(root.elements(forName: "credits"))
         movie.plot = text("plot") ?? text("outline")
 
         let genres = texts(root.elements(forName: "genre"))
         movie.genres = genres.isEmpty ? texts(root.elements(forName: "tag")) : genres
-        movie.actors = texts(root.elements(forName: "actor").flatMap { $0.elements(forName: "name") })
+        movie.actors = root.elements(forName: "actor").compactMap { actorEl -> NFOMovie.Cast? in
+            guard let name = actorEl.elements(forName: "name").first?.stringValue?.nilIfEmpty else { return nil }
+            let role = actorEl.elements(forName: "role").first?.stringValue?.nilIfEmpty
+            return NFOMovie.Cast(name: name, role: role)
+        }
 
         // Kodi may declare the poster as a top-level <thumb aspect="poster">.
         // When absent, the renderer falls back to conventional file names (poster.jpg ...).
@@ -81,7 +92,8 @@ enum NFOParser {
     }
 
     private static func isLocalPath(_ path: String) -> Bool {
-        !path.isEmpty && !path.contains("://")
+        // Allow both local paths and remote URLs now that the extension has network access
+        !path.isEmpty
     }
 }
 

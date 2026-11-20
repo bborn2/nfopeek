@@ -6,6 +6,8 @@
 	<true/>
 	<key>com.apple.security.files.user-selected.read-only</key>
 	<true/>
+	<key>com.apple.security.network.client</key>
+	<true/>
 	<!-- Read sibling images (poster.jpg, art-N.jpg) next to the previewed .nfo.
 	     Not allowed on the Mac App Store; fine for direct distribution. -->
 	<key>com.apple.security.temporary-exception.files.absolute-path.read-only</key>
