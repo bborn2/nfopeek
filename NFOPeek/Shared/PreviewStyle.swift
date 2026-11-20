@@ -29,15 +29,9 @@ enum PreviewStyle {
     h2 { font-size: 13px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase;
          color: var(--muted); margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
 
-    /* Responsive masonry-style grid */
-    .grid { display: grid; gap: 12px; grid-auto-rows: auto; }
-    @media (max-width: 800px) { .grid { grid-template-columns: repeat(2, 1fr); } }
-    @media (min-width: 801px) and (max-width: 1200px) { .grid { grid-template-columns: repeat(3, 1fr); } }
-    @media (min-width: 1201px) and (max-width: 1600px) { .grid { grid-template-columns: repeat(4, 1fr); } }
-    @media (min-width: 1601px) and (max-width: 2200px) { .grid { grid-template-columns: repeat(5, 1fr); } }
-    @media (min-width: 2201px) { .grid { grid-template-columns: repeat(6, 1fr); } }
-
-    .grid img { width: 100%; height: auto; border-radius: 6px; display: block; cursor: pointer; transition: opacity .2s; }
+    /* Masonry grid: images keep their aspect ratio and pack tightly, laid out in reading order by JS below */
+    .grid { position: relative; }
+    .grid img { position: absolute; border-radius: 6px; display: block; cursor: pointer; transition: opacity .2s; }
     .grid img:hover { opacity: .85; }
 
     .card { background: var(--card); border-radius: 6px; overflow: hidden; }
@@ -46,11 +40,11 @@ enum PreviewStyle {
     .noimg { aspect-ratio: 2 / 3; display: flex; align-items: center; justify-content: center;
              font-size: 28px; color: var(--muted); background: var(--chip); }
 
-    /* Lightbox overlay */
-    #lightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.92); z-index: 9999;
+    /* Lightbox overlay - fill more screen */
+    #lightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.95); z-index: 9999;
                 align-items: center; justify-content: center; cursor: zoom-out; }
     #lightbox.show { display: flex; }
-    #lightbox img { max-width: 90vw; max-height: 90vh; border-radius: 8px; box-shadow: 0 20px 60px rgba(0,0,0,.5); }
+    #lightbox img { max-width: 98vw; max-height: 98vh; border-radius: 4px; box-shadow: 0 20px 80px rgba(0,0,0,.7); }
     """
 
     static let js = """
@@ -67,6 +61,52 @@ enum PreviewStyle {
         lb.querySelector('img').src = e.target.src;
         lb.classList.add('show');
       }
+    });
+
+    // Masonry: images pack tightly like a photo wall, but are assigned to columns
+    // in left-to-right reading order (image 1 -> col 1, image 2 -> col 2, ...),
+    // not "fill column 1 first" like CSS column-count.
+    function layoutMasonry(grid) {
+      const gap = 12;
+      const width = grid.clientWidth;
+      const cols = width > 2200 ? 6 : width > 1600 ? 5 : width > 1200 ? 4 : width > 800 ? 3 : 2;
+      const colWidth = (width - gap * (cols - 1)) / cols;
+      const colHeights = new Array(cols).fill(0);
+      const imgs = Array.from(grid.querySelectorAll('img'));
+      let loaded = 0;
+
+      function place(img, col) {
+        const ratio = img.naturalHeight / img.naturalWidth || 1.5;
+        const h = colWidth * ratio;
+        img.style.width = colWidth + 'px';
+        img.style.height = h + 'px';
+        img.style.left = col * (colWidth + gap) + 'px';
+        img.style.top = colHeights[col] + 'px';
+        colHeights[col] += h + gap;
+      }
+
+      imgs.forEach((img, i) => {
+        const col = i % cols;
+        if (img.complete && img.naturalWidth) {
+          place(img, col);
+          loaded++;
+          if (loaded === imgs.length) grid.style.height = Math.max(...colHeights) + 'px';
+        } else {
+          img.addEventListener('load', () => {
+            place(img, col);
+            loaded++;
+            grid.style.height = Math.max(...colHeights) + 'px';
+          });
+        }
+      });
+      if (imgs.length) grid.style.height = Math.max(...colHeights, 100) + 'px';
+    }
+
+    document.querySelectorAll('.grid').forEach(layoutMasonry);
+    let resizeTimer;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => document.querySelectorAll('.grid').forEach(layoutMasonry), 100);
     });
     """
 }
