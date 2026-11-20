@@ -1,0 +1,42 @@
+name: NFOPeek
+options:
+  bundleIdPrefix: com.kunsong
+  deploymentTarget:
+    macOS: "13.0"
+  developmentLanguage: en
+
+settings:
+  DEVELOPMENT_TEAM: GJJSTT273S
+  MARKETING_VERSION: "1.0.0"
+  CURRENT_PROJECT_VERSION: "1"
+  CODE_SIGN_STYLE: Automatic
+
+targets:
+  NFOPeek:
+    type: application
+    platform: macOS
+    sources:
+      - path: NFOPeek/App
+      - path: NFOPeek/Shared
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: com.kunsong.NFOPeek
+      INFOPLIST_FILE: NFOPeek/App/Info.plist
+      CODE_SIGN_ENTITLEMENTS: NFOPeek/App/NFOPeek.entitlements
+      ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+      ENABLE_HARDENED_RUNTIME: YES
+      COMBINE_HIDPI_IMAGES: YES
+    dependencies:
+      - target: NFOPeek Extension
+        embed: true
+
+  NFOPeek Extension:
+    type: app-extension
+    platform: macOS
+    sources:
+      - path: NFOPeek/Extension
+      - path: NFOPeek/Shared
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: com.kunsong.NFOPeek.Extension
+      INFOPLIST_FILE: NFOPeek/Extension/Info.plist
+      CODE_SIGN_ENTITLEMENTS: NFOPeek/Extension/Extension.entitlements
+      SKIP_INSTALL: NO

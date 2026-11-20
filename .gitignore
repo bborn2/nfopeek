@@ -60,3 +60,15 @@ fastlane/report.xml
 fastlane/Preview.html
 fastlane/screenshots/**/*.png
 fastlane/test_output
+
+# Sample files
+sample/
+
+# XcodeGen-generated project (use project.yml as source)
+NFOPeek.xcodeproj/
+build/
+DerivedData/
+
+# macOS
+.DS_Store
+sample2/
