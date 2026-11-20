@@ -1,5 +1,4 @@
 struct HTMLRenderer {
-    static let maxCast = 30
     let item: NFOItem
     let art: Artwork
     let store: ImageStore
@@ -8,25 +7,22 @@ struct HTMLRenderer {
         """
         <!DOCTYPE html><html><head><meta charset="UTF-8">
         <style>\(PreviewStyle.css)</style></head><body>
-        \(hero())\(main())</body></html>
+        \(header())\(main())</body></html>
         """
     }
 
-    private func hero() -> String {
-        var s = ""
-        let cls = art.backdrop != nil ? "hero has-backdrop" : "hero"
-        s += "<div class=\"\(cls)\">"
-        if let backdropID = art.backdrop {
-            s += "<img src=\"cid:\(backdropID)\" style=\"position:absolute;inset:0;width:100%;height:100%;object-fit:cover;\">"
+    private func header() -> String {
+        var s = "<div class=\"header\">"
+        if let poster = art.poster, let id = store.load(poster) {
+            s += "<div class=\"poster\"><img src=\"cid:\(id)\" alt=\"Poster\"></div>"
         }
-        if let posterID = art.poster { s += "<img src=\"cid:\(posterID)\" class=\"poster\" alt=\"Poster\">" }
-        s += "<div class=\"headline\">"
-        if let logoID = art.logo { s += "<img src=\"cid:\(logoID)\" class=\"logo\" alt=\"Logo\">" }
-        s += "<h1>\(esc(item.title ?? "Untitled"))</h1>"
+        s += "<div class=\"info\">"
+        s += "<h1 class=\"title\">\(esc(item.title ?? "Untitled"))</h1>"
         if let orig = item.originalTitle, orig != item.title { s += "<div class=\"original\">\(esc(orig))</div>" }
-        if let tag = item.tagline { s += "<div class=\"tagline\">\(esc(tag))</div>" }
         s += metadata()
         s += chips(item.genres)
+        if let plot = item.plot { s += "<div class=\"plot\">\(esc(plot))</div>" }
+        s += facts()
         s += "</div></div>"
         return s
     }
@@ -52,17 +48,6 @@ struct HTMLRenderer {
         return "<div class=\"chips\">\(labels.map { "<span class=\"chip\">\(esc($0))</span>" }.joined())</div>"
     }
 
-    private func main() -> String {
-        var s = "<main><div class=\"overview\"><div>"
-        if let plot = item.plot { s += "<div class=\"plot\">\(esc(plot))</div>" }
-        s += "</div><div>\(facts())\(tags())</div></div>"
-        if !item.actors.isEmpty { s += section("Cast", grid: cast()) }
-        if !art.seasons.isEmpty { s += section("Seasons", grid: seasons()) }
-        if !art.stills.isEmpty { s += section("Stills", grid: stills()) }
-        if !art.extras.isEmpty { s += section("Artwork", grid: extras()) }
-        return s + "</main>"
-    }
-
     private func facts() -> String {
         var rows: [(String, String)] = []
         if !item.directors.isEmpty { rows.append(("Director", item.directors.joined(separator: ", "))) }
@@ -77,33 +62,30 @@ struct HTMLRenderer {
         return "<dl class=\"facts\">" + rows.map { "<dt>\($0.0)</dt><dd>\(esc($0.1))</dd>" }.joined() + "</dl>"
     }
 
-    private func tags() -> String { item.tags.isEmpty ? "" : "<div style=\"margin-top:14px\">\(chips(item.tags))</div>" }
-
-    private func section(_ title: String, grid: String) -> String {
-        "<section><h2>\(title)</h2><div class=\"grid \(title.lowercased())\">\(grid)</div></section>"
+    private func main() -> String {
+        var s = "<main>"
+        if !art.seasons.isEmpty { s += section("Seasons", grid: seasons()) }
+        if !art.gallery.isEmpty { s += section("Gallery", grid: gallery()) }
+        return s + "</main>"
     }
 
-    private func cast() -> String {
-        item.actors.prefix(Self.maxCast).enumerated().map { i, p in
-            let img = art.headshots[i].map { "<img src=\"cid:\($0)\">" }
-                ?? "<div class=\"noimg\">\(p.name.prefix(1))</div>"
-            let sub = p.role.map { "<div class=\"sub\">\(esc($0))</div>" } ?? ""
-            return "<div class=\"card\">\(img)<div class=\"caption\">\(esc(p.name))\(sub)</div></div>"
-        }.joined()
+    private func section(_ title: String, grid: String) -> String {
+        "<section><h2>\(title)</h2><div class=\"grid\">\(grid)</div></section>"
     }
 
     private func seasons() -> String {
         art.seasons.map { s in
-            let img = s.poster.map { "<img src=\"cid:\($0)\">" } ?? "<div class=\"noimg\">\(s.number)</div>"
-            return "<div class=\"card\">\(img)<div class=\"caption\">\(esc(s.name))</div></div>"
+            if let poster = s.poster, let id = store.load(poster, maxPixel: 400) {
+                return "<div class=\"card\"><img src=\"cid:\(id)\"><div class=\"caption\">\(esc(s.name))</div></div>"
+            } else {
+                return "<div class=\"card\"><div class=\"noimg\">\(s.number)</div><div class=\"caption\">\(esc(s.name))</div></div>"
+            }
         }.joined()
     }
 
-    private func stills() -> String { art.stills.map { "<img src=\"cid:\($0)\">" }.joined() }
-
-    private func extras() -> String {
-        art.extras.map { e in
-            "<div class=\"card\"><img src=\"cid:\(e.id)\"><div class=\"caption\">\(esc(e.label))</div></div>"
+    private func gallery() -> String {
+        art.gallery.compactMap { path in
+            store.load(path).map { "<img src=\"cid:\($0)\">" }
         }.joined()
     }
 

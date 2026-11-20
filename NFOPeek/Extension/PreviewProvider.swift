@@ -18,7 +18,7 @@ class PreviewProvider: QLPreviewProvider, QLPreviewingController {
         }
 
         let store = ImageStore(baseDir: nfoURL.deletingLastPathComponent())
-        let art = Artwork.resolve(item, nfoURL: nfoURL, store: store, maxHeadshots: HTMLRenderer.maxCast)
+        let art = Artwork.resolve(item, nfoURL: nfoURL)
         let html = HTMLRenderer(item: item, art: art, store: store).render()
         log.info("\(nfoURL.lastPathComponent, privacy: .public): \(store.images.count) images")
 
