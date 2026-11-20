@@ -7,7 +7,9 @@ struct HTMLRenderer {
         """
         <!DOCTYPE html><html><head><meta charset="UTF-8">
         <style>\(PreviewStyle.css)</style></head><body>
-        \(header())\(main())</body></html>
+        \(header())\(main())
+        <script>\(PreviewStyle.js)</script>
+        </body></html>
         """
     }
 

@@ -9,7 +9,7 @@ enum PreviewStyle {
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { font: 14px/1.6 -apple-system, "PingFang SC", sans-serif; background: var(--bg); color: var(--fg); padding: 24px; }
 
-    .header { display: flex; gap: 24px; }
+    .header { display: flex; gap: 24px; max-width: 1400px; }
     .poster { flex-shrink: 0; width: 220px; border-radius: 8px; overflow: hidden; background: var(--card); }
     .poster img { width: 100%; display: block; }
     .info { flex: 1; min-width: 0; }
@@ -28,12 +28,45 @@ enum PreviewStyle {
     section { margin-top: 24px; }
     h2 { font-size: 13px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase;
          color: var(--muted); margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px solid var(--line); }
-    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
-    .grid img { width: 100%; border-radius: 6px; display: block; }
+
+    /* Responsive masonry-style grid */
+    .grid { display: grid; gap: 12px; grid-auto-rows: auto; }
+    @media (max-width: 800px) { .grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (min-width: 801px) and (max-width: 1200px) { .grid { grid-template-columns: repeat(3, 1fr); } }
+    @media (min-width: 1201px) and (max-width: 1600px) { .grid { grid-template-columns: repeat(4, 1fr); } }
+    @media (min-width: 1601px) and (max-width: 2200px) { .grid { grid-template-columns: repeat(5, 1fr); } }
+    @media (min-width: 2201px) { .grid { grid-template-columns: repeat(6, 1fr); } }
+
+    .grid img { width: 100%; height: auto; border-radius: 6px; display: block; cursor: pointer; transition: opacity .2s; }
+    .grid img:hover { opacity: .85; }
+
     .card { background: var(--card); border-radius: 6px; overflow: hidden; }
-    .card img { width: 100%; aspect-ratio: 2 / 3; object-fit: cover; display: block; }
+    .card img { width: 100%; aspect-ratio: 2 / 3; object-fit: cover; display: block; cursor: pointer; }
     .card .caption { padding: 6px 8px; font-size: 12px; }
     .noimg { aspect-ratio: 2 / 3; display: flex; align-items: center; justify-content: center;
              font-size: 28px; color: var(--muted); background: var(--chip); }
+
+    /* Lightbox overlay */
+    #lightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.92); z-index: 9999;
+                align-items: center; justify-content: center; cursor: zoom-out; }
+    #lightbox.show { display: flex; }
+    #lightbox img { max-width: 90vw; max-height: 90vh; border-radius: 8px; box-shadow: 0 20px 60px rgba(0,0,0,.5); }
+    """
+
+    static let js = """
+    document.addEventListener('click', e => {
+      if (e.target.tagName === 'IMG' && e.target.closest('.grid, .card')) {
+        let lb = document.getElementById('lightbox');
+        if (!lb) {
+          lb = document.createElement('div');
+          lb.id = 'lightbox';
+          lb.innerHTML = '<img>';
+          document.body.appendChild(lb);
+          lb.addEventListener('click', () => lb.classList.remove('show'));
+        }
+        lb.querySelector('img').src = e.target.src;
+        lb.classList.add('show');
+      }
+    });
     """
 }
