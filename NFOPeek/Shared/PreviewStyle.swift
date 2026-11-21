@@ -63,9 +63,8 @@ enum PreviewStyle {
       }
     });
 
-    // Masonry: images pack tightly like a photo wall, but are assigned to columns
-    // in left-to-right reading order (image 1 -> col 1, image 2 -> col 2, ...),
-    // not "fill column 1 first" like CSS column-count.
+    // Masonry: images pack tightly like a photo wall, using shortest-column-first
+    // to balance column heights, rather than fixed reading order.
     function layoutMasonry(grid) {
       const gap = 12;
       const width = grid.clientWidth;
@@ -75,9 +74,10 @@ enum PreviewStyle {
       const imgs = Array.from(grid.querySelectorAll('img'));
       let loaded = 0;
 
-      function place(img, col) {
+      function place(img) {
         const ratio = img.naturalHeight / img.naturalWidth || 1.5;
         const h = colWidth * ratio;
+        const col = colHeights.indexOf(Math.min(...colHeights));
         img.style.width = colWidth + 'px';
         img.style.height = h + 'px';
         img.style.left = col * (colWidth + gap) + 'px';
@@ -85,15 +85,14 @@ enum PreviewStyle {
         colHeights[col] += h + gap;
       }
 
-      imgs.forEach((img, i) => {
-        const col = i % cols;
+      imgs.forEach((img) => {
         if (img.complete && img.naturalWidth) {
-          place(img, col);
+          place(img);
           loaded++;
           if (loaded === imgs.length) grid.style.height = Math.max(...colHeights) + 'px';
         } else {
           img.addEventListener('load', () => {
-            place(img, col);
+            place(img);
             loaded++;
             grid.style.height = Math.max(...colHeights) + 'px';
           });
