@@ -77,8 +77,8 @@ struct HTMLRenderer {
 
     private func seasons() -> String {
         art.seasons.map { s in
-            if let poster = s.poster, let id = store.load(poster, maxPixel: 400) {
-                return "<div class=\"card\"><img src=\"cid:\(id)\"><div class=\"caption\">\(esc(s.name))</div></div>"
+            if let poster = s.poster, let tag = img(poster, maxPixel: 400) {
+                return "<div class=\"card\">\(tag)<div class=\"caption\">\(esc(s.name))</div></div>"
             } else {
                 return "<div class=\"card\"><div class=\"noimg\">\(s.number)</div><div class=\"caption\">\(esc(s.name))</div></div>"
             }
@@ -86,9 +86,14 @@ struct HTMLRenderer {
     }
 
     private func gallery() -> String {
-        art.gallery.compactMap { path in
-            store.load(path).map { "<img src=\"cid:\($0)\">" }
-        }.joined()
+        art.gallery.compactMap { img($0) }.joined()
+    }
+
+    /// `<img>` showing the downsampled thumbnail, with the original file referenced for the lightbox.
+    private func img(_ path: String, maxPixel: Int = 600) -> String? {
+        guard let id = store.load(path, maxPixel: maxPixel) else { return nil }
+        let full = store.loadOriginal(path).map { " data-full=\"cid:\($0)\"" } ?? ""
+        return "<img src=\"cid:\(id)\"\(full)>"
     }
 
     private func esc(_ text: String) -> String {

@@ -40,11 +40,11 @@ enum PreviewStyle {
     .noimg { aspect-ratio: 2 / 3; display: flex; align-items: center; justify-content: center;
              font-size: 28px; color: var(--muted); background: var(--chip); }
 
-    /* Lightbox overlay - fill more screen */
+    /* Lightbox overlay - image scales up to fill the window, keeping aspect ratio */
     #lightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.95); z-index: 9999;
-                align-items: center; justify-content: center; cursor: zoom-out; }
-    #lightbox.show { display: flex; }
-    #lightbox img { max-width: 98vw; max-height: 98vh; border-radius: 4px; box-shadow: 0 20px 80px rgba(0,0,0,.7); }
+                cursor: zoom-out; }
+    #lightbox.show { display: block; }
+    #lightbox img { width: 100%; height: 100%; object-fit: contain; display: block; }
     """
 
     static let js = """
@@ -58,7 +58,7 @@ enum PreviewStyle {
           document.body.appendChild(lb);
           lb.addEventListener('click', () => lb.classList.remove('show'));
         }
-        lb.querySelector('img').src = e.target.src;
+        lb.querySelector('img').src = e.target.dataset.full || e.target.src;
         lb.classList.add('show');
       }
     });
