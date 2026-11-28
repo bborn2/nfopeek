@@ -10,8 +10,8 @@ enum PreviewStyle {
     body { font: 14px/1.6 -apple-system, "PingFang SC", sans-serif; background: var(--bg); color: var(--fg); padding: 24px; }
 
     .header { display: flex; gap: 24px; max-width: 1400px; }
-    .poster { flex-shrink: 0; width: 220px; border-radius: 8px; overflow: hidden; background: var(--card); }
-    .poster img { width: 100%; display: block; }
+    .poster { flex-shrink: 0; align-self: flex-start; width: 220px; }
+    .poster img { width: 100%; display: block; border-radius: 8px; }
     .info { flex: 1; min-width: 0; }
     .title { font-size: 26px; font-weight: 700; line-height: 1.25; }
     .original { color: var(--muted); font-size: 15px; margin-top: 2px; }
